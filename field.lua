@@ -20,47 +20,45 @@ field = {}
 field.__index = field
 
 setmetatable(field, {
-	__call = function()
+	__call = function(_, player)
 		local self = setmetatable({}, field)
-		self.w = 6
-		self.h = 13
 
-		for i = 1, self.h do
+		self.player = player
+
+		for i = 1, 13 do
 			self[i] = {}
-			for j = 1, self.w do
+			for j = 1, 6 do
 				self[i][j] = "no"
 			end
 		end
 
 		return self
-	end
+	end,
 })
 
 function field:get(x, y)
-	x = util.round(x)
-	y = util.round(y)
-	if x <= 0 or x > self.w or y <= 0 or y > self.h then
+	local x = util.round(x)
+	local y = util.round(y)
+
+	if x <= 0 or x > 6 or y <= 0 or y > 13 then
 		return "wall"
 	else
 		return self[y][x]
 	end
 end
 
-function field:set(x, y, color)
-	x = util.round(x)
-	y = util.round(y)
-	self[y][x] = color
-end
+function field:set(x, y, c)
+	local x = util.round(x)
+	local y = util.round(y)
 
-function field:update(dt)
-
+	self[y][x] = c
 end
 
 function field:delete()
 	local checkedfield = {}
-	for i = 1, self.h do
+	for i = 1, 13 do
 		checkedfield[i] = {}
-		for j = 1, self.w do
+		for j = 1, 6 do
 			checkedfield[i][j] = 0
 		end
 	end
@@ -84,11 +82,11 @@ function field:delete()
 		return cnt
 	end
 
-	for i = 1, self.h do
-		for j = 1, self.w do
+	for i = 1, 13 do
+		for j = 1, 6 do
 			if self[i][j] ~= "no" and checkedfield[i][j] == 0 then
 				local auxfield = {}
-				for i = 1, self.h do
+				for i = 1, 13 do
 					auxfield[i] = {}
 				end
 
@@ -109,19 +107,18 @@ function field:delete()
 		end
 	end
 
-	for _, pos in ipairs(deletes) do
-		self:set(pos.x, pos.y, "no")
-	end
-
 	return deletes
 end
 
 function field:draw()
-	for i = 1, self.h do
-		for j = 1, self.w do
-			if self[i][j] ~= "no" and self[i][j] ~= "wall" then
-				local x, y = transformcoordinate(j, i)
-				drawdrop(x, y, self[i][j])
+	for i = 1, 13 do
+		for j = 1, 6 do
+			if self[i][j] ~= "no" then
+				local x = util.round((j - 1) * 10 + self.player.fieldoffsetx)
+				local y = util.round((12 - i) * 10 + self.player.fieldoffsety)
+
+				love.graphics.setColor(255, 255, 255, 255)
+				love.graphics.draw(images["drop"][self[i][j]], x * scale, y * scale, 0, scale, scale)
 			end
 		end
 	end

@@ -19,261 +19,261 @@
 dropair = {}
 dropair.__index = dropair
 
-local function childposition(x, y, r)
-	return { x = x + math.sin(math.rad(r)), y = y + math.cos(math.rad(r)) }
-end
-
 setmetatable(dropair, {
-	__call = function(_, x, y, colors)
+	__call = function(_, x, y, colors, player)
 		local self = setmetatable({}, dropair)
 
+		self.player = player
 		self.x = x
 		self.y = y
 		self.r = 0
-		self.nextx = self.x
-		self.nexty = self.y
+		self.nextx = x
+		self.nexty = y
 		self.nextr = 0
-		self.movespeed = 20
+		self.movespeed = 8
 		self.rotatespeed = 600
 		self.colors = colors
-		self.moveanimationstate = "idle"
-		self.rotateanimationstate = "idle"
-		self.moveanimationtimer = 0
-		self.rotateanimationtimer = 0
+		self.falltime = 1
 		self.falltimer = 0
+		self.moveanimstate = "idle"
+		self.rotateanimstate = "idle"
 
 		return self
 	end,
 })
 
-function dropair:movesenabled()
-	return self.moveanimationstate == "idle"
+function dropair.calcchildposition(x, y, r)
+	return {
+		x = x + math.sin(math.rad(r)),
+		y = y + math.cos(math.rad(r)),
+	}
 end
 
-function dropair:rotatesenabled(dir)
-	if dir == nil then
-		return self.rotateanimationstate == "idle" and self.moveanimationstate == "idle"
+function dropair:fix()
+	local field = self.player.field
+	local poss = self:getpositions()
+
+	for i, p in ipairs(poss) do
+		local j = (i + 2) % 2 + 1
+
+		-- Either one drop can falldown.
+		if field:get(p.x, p.y - 1) == "no" and (p.x ~= poss[j].x and p.y - 1 ~= poss[j].y) then
+			local y = p.y - 1
+
+			while field:get(p.x, y) == "no" do
+				y = y - 1
+			end
+
+			field:set(poss[j].x, poss[j].y, self.colors[j])
+			self.player:changegamestate("fall", {
+				{ x = p.x, y = p.y, desty = y + 1, color = self.colors[i]},
+			})
+
+			return
+		end
 	end
-	return self.rotateanimationstate ~= dir and self.moveanimationstate == "idle"
+	for i, p in ipairs(poss) do
+		field:set(p.x, p.y, self.colors[i])
+	end
+
+	local deletes = field:delete()
+
+	if #deletes == 0 then
+		self.player:changegamestate("next")
+	else
+		self.player:changegamestate("delete", deletes)
+	end
 end
 
 function dropair:movedown()
-	local field = game.objects["field"]
+	local field = self.player.field
+	local poss = {
+		{ x = self.x, y = self.y - 1 },
+		dropair.calcchildposition(self.x, self.y - 1, self.nextr)
+	}
 
-	local tmpr
-	if self.rotateanimationstate ~= "idle" then
-		tmpr = self.nextr
-	else
-		tmpr = self.r
-	end
-
-	local poss = { { x = self.x, y = self.y - 1 }, childposition(self.x, self.y - 1, tmpr) }
-	local enabled = true
-	for _, pos in ipairs(poss) do
-		if field:get(pos.x, pos.y) ~= "no" then
-			enabled = false
+	local enable = true
+	for _, p in ipairs(poss) do
+		if field:get(p.x, p.y) ~= "no" then
+			enable = false
 			break
 		end
 	end
 
-	if enabled then
-		sounds["se"][2]:play()
-		self.moveanimationstate = "down"
+	if enable then
+		self.moveanimstate = "down"
 		self.nextx = self.x
 		self.nexty = self.y - 1
-	else
-		game:changegamestate("fix")
+	elseif self.moveanimstate == "idle" and self.rotateanimstate == "idle" then
+		self:fix()
 	end
 end
 
-function dropair:move(dt)
-	local checkorder = util.shuffle{ "right", "left", "down" }
-	local field = game.objects["field"]
+function dropair:move()
+	local checks = util.shuffle{ "right", "left", "down" }
+	local field = self.player.field
 
-	for _, dir in ipairs(checkorder) do
-		if dir == "right" and checkcontrols("moveright") or dir == "left" and checkcontrols("moveleft") then
-			local diffx = (dir == "right") and 1 or -1
+	for _, v in ipairs(checks) do
+		if v == "right" and checkcontrols("right") or v == "left" and checkcontrols("left") then
+			local dx = (v == "right") and 1 or -1
+			local poss = {
+				{ x = self.x + dx, y = self.y },
+				dropair.calcchildposition(self.x + dx, self.y, self.nextr),
+			}
 
-			local tmpr
-			if self.rotateanimationstate ~= "idle" then
-				tmpr = self.nextr
-			else
-				tmpr = self.r
-			end
-
-			local poss = { { x = self.x + diffx, y = self.y }, childposition(self.x + diffx, self.y, self.nextr) }
-			local enabled = true
-			for _, pos in ipairs(poss) do
-				if field:get(pos.x, pos.y) ~= "no" then
-					enabled = false
+			local enable = true
+			for _, p in ipairs(poss) do
+				if field:get(p.x, p.y) ~= "no" then
+					enable = false
 					break
 				end
 			end
 
-			if enabled then
-				sounds["se"][2]:play()
-				self.moveanimationstate = dir
-				self.nextx = self.x + diffx
+			if enable then
+				self.moveanimstate = v
+				self.nextx = self.x + dx
 				self.nexty = self.y
 			end
 
-		elseif dir == "down" and checkcontrols("movedown") then
+		elseif v == "down" and checkcontrols("movedown") then
 			self:movedown()
 		end
 	end
 end
 
-function dropair:getpositions()
-	return { { x = self.x, y = self.y }, childposition(self.x, self.y, self.r) }
-end
+function dropair:rotate()
+	local checks = util.shuffle{ "right", "left" }
+	local field = self.player.field
 
-function dropair:rotate(dt)
-	local angleref = { 0, 90, 180, 270, 360 }
-	local checkorder = util.shuffle{ "right", "left" }
-	local field = game.objects["field"]
-
-	local function rotatecommon(rdir, nextr)
-		local cpos = childposition(self.x, self.y, nextr)
-		sounds["se"][3]:play()
+	local function rotatecommon(dir, nextr)
+		local cpos = dropair.calcchildposition(self.nextx, self.nexty, nextr)
 		if field:get(cpos.x, cpos.y) == "no" then
 			self.nextr = nextr
-			self.rotateanimationstate = rdir
+			self.rotateanimstate = dir
 			return
 		else
-			local tpos = childposition(self.x, self.y, (nextr + 180) % 360)
+			local tpos = dropair.calcchildposition(self.nextx, self.nexty, (nextr + 180) % 360)
 
 			if field:get(tpos.x, tpos.y) == "no" then
 				self.nextx = tpos.x
 				self.nexty = tpos.y
 				self.nextr = nextr
-				self.rotateanimationstate = rdir
+				self.rotateanimstate = dir
 
-				if nextr == 90 then
-					self.moveanimationstate = "left"
-				elseif nextr == 180 then
-					self.moveanimationstate = "up"
-				elseif nextr == 270 then
-					self.moveanimationstate = "right"
+				local tmp = (nextr / 90) % 4
+				if tmp == 1 then
+					self.moveanimstate = "left"
+				elseif tmp == 2 then
+					self.moveanimstate = "up"
+				elseif tmp == 3 then
+					self.moveanimstate = "right"
 				end
 				return
 			else
-				self.rotateanimationstate = "upsidedown"
 
-				if nextr == 180 then
-					self.nextr = 0
-				elseif nextr == 0 or nextr == 360 then
-					self.nextr = 180
-				end
-				return
 			end
 		end
-
 	end
 
-	for _, dir in ipairs(checkorder) do
-		if dir == "right" and checkcontrols("rotateright") and self:rotatesenabled("right") then
-			if self.r > 270 then
-				self.r = self.r - 360
-			end
-			for i = 1, 4 do
-				if self.r >= angleref[i] and self.r <= angleref[i + 1] then
-					local nextr = angleref[i + 1]
-					rotatecommon("right", nextr)
-				end
-			end
-			break
+	for _, v in ipairs(checks) do
+		if v == "right" and checkcontrols("rotateright") then
+			local nextr = (math.floor(self.r / 90) + 1) * 90
+			rotatecommon("right", nextr)
 
-		elseif dir == "left" and checkcontrols("rotateleft") and self:rotatesenabled("left") then
-			if self.r < 90 then
-				self.r = self.r + 360
-			end
-			for i = 1, 4 do
-				if self.r > angleref[i] and self.r <= angleref[i + 1] then
-					local nextr = angleref[i]
-					rotatecommon("left", nextr)
-				end
-			end
-			break
+		elseif v == "left" and checkcontrols("rotateleft") then
+			local nextr = math.floor((self.r - 1) / 90) * 90
+			rotatecommon("left", nextr)
 		end
 	end
-end
-
-function dropair:leavemove()
-	self.moveanimationstate = "idle"
-end
-
-function dropair:leaverotate()
-	self.rotateanimationstate = "idle"
 end
 
 function dropair:update(dt)
 	self.falltimer = self.falltimer + dt
-	if self.falltimer > falltimeinterval and self:movesenabled() then
+	if self.falltimer > self.falltime and self.moveanimstate == "idle" then
 		self.falltimer = 0
 		self:movedown()
+		return
 	end
 
+	if self.rotateanimstate == "idle" then
+		if self.r > 360 then
+			self.r = self.r - 360
+		elseif self.r < 0 then
+			self.r = self.r + 360
+		end
 
-	if self.moveanimationstate == "right" then
-		if self.x >= self.nextx then
-			self.x = self.nextx
-			self:leavemove()
-		else
-			self.x = self.x + self.movespeed * dt
-		end
-	elseif self.moveanimationstate == "left" then
-		if self.x <= self.nextx then
-			self.x = self.nextx
-			self:leavemove()
-		else
-			self.x = self.x - self.movespeed * dt
-		end
-	elseif self.moveanimationstate == "down" then
-		if self.y <= self.nexty then
-			self.y = self.nexty
-			self:leavemove()
-		else
-			self.y = self.y - self.movespeed * dt
-		end
-	elseif self.moveanimationstate == "up" then
-		if self.y >= self.nexty then
-			self.y = self.nexty
-			self:leavemove()
-		else
-			self.y = self.y + self.movespeed * dt
+		if self.nextr > 360 then
+			self.nextr = self.nextr - 360
+		elseif self.nextr < 0 then
+			self.nextr = self.nextr + 360
 		end
 	end
 
-	if self.rotateanimationstate == "right" then
+	if self.rotateanimstate == "right" then
+		self.r = self.r + self.rotatespeed * dt
 		if self.r >= self.nextr then
 			self.r = self.nextr
-			self:leaverotate()
-		else
-			self.r = self.r + self.rotatespeed * dt
+			self.rotateanimstate = "idle"
+			return
 		end
-	elseif self.rotateanimationstate == "left" then
+	elseif self.rotateanimstate == "left" then
+		self.r = self.r - self.rotatespeed * dt
 		if self.r <= self.nextr then
 			self.r = self.nextr
-			self:leaverotate()
-		else
-			self.r = self.r - self.rotatespeed * dt
+			self.rotateanimstate = "idle"
+			return
 		end
-	elseif self.rotateanimationstate == "upsidedown" then
-
 	end
 
-	if self:rotatesenabled() then
-		self:rotate(dt)
+	if self.moveanimstate == "up" then
+		self.y = self.y + self.movespeed * dt
+		if self.y >= self.nexty then
+			self.y = self.nexty
+			self.moveanimstate = "idle"
+			return
+		end
+	elseif self.moveanimstate == "down" then
+		self.y = self.y - self.movespeed * dt
+		if self.y <= self.nexty then
+			self.y = self.nexty
+			self.moveanimstate = "idle"
+			return
+		end
+	elseif self.moveanimstate == "left" then
+		self.x = self.x - self.movespeed * dt
+		if self.x <= self.nextx then
+			self.x = self.nextx
+			self.moveanimstate = "idle"
+			return
+		end
+	elseif self.moveanimstate == "right" then
+		self.x = self.x + self.movespeed * dt
+		if self.x >= self.nextx then
+			self.x = self.nextx
+			self.moveanimstate = "idle"
+			return
+		end
 	end
-	if self:movesenabled() then
-		self:move(dt)
+
+	if self.moveanimstate == "idle" then
+		self:rotate()
+		self:move()
 	end
 end
 
+function dropair:getpositions()
+	return {
+		{ x = self.x, y = self.y },
+		dropair.calcchildposition(self.x, self.y, self.r),
+	}
+end
+
 function dropair:draw()
-	for i, pos in ipairs(self:getpositions()) do
-		local x, y = transformcoordinate(pos.x, pos.y)
-		drawdrop(x, y, self.colors[i])
-		--love.graphics.circle("fill", (pos.x - 1) * 50 + 75, (12 - pos.y) * 50 + 75, 25)
+	for i, p in ipairs(self:getpositions()) do
+		local x = util.round((p.x - 1) * 10 + self.player.fieldoffsetx)
+		local y = util.round((12 - p.y) * 10 + self.player.fieldoffsety)
+
+		love.graphics.setColor(255, 255, 255, 255)
+		love.graphics.draw(images["drop"][self.colors[i]], x * scale, y * scale, 0, scale, scale)
 	end
 end

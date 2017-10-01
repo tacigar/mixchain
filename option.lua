@@ -1,5 +1,5 @@
 ---------------------------------------------------------------------
--- puyolove
+-- mixchain
 -- Copyright (C) 2017 tacigar
 --
 -- This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,4 @@
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ---------------------------------------------------------------------
 
-function love.conf(t)
-	t.window.width  = 480
-	t.window.height = 360
-end
+option = {}

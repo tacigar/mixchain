@@ -26,11 +26,12 @@ function love.load()
 	math.randomseed(os.time())
 
 	require "util"
-	require "animation"
 	require "effect"
+	require "player"
 	require "dropair"
 	require "field"
 	require "game"
+	require "menu"
 
 	controls = {}
 	controls["up"]          = { "w", 12 }
@@ -44,7 +45,7 @@ function love.load()
 	controls["rotateright"] = { "l",  2 }
 	controls["decide"]      = { "return", 1 }
 	controls["cancel"]      = { "escape", 2 }
-	controls["start"]       = { "escape", 8 }
+	controls["pause"]       = { "escape", 8 }
 
 	colors = {}
 	colors["red"]    = { r = 255, g =   0, b =   0 }
@@ -61,39 +62,52 @@ function love.load()
 	images["drop"]["purple"] = love.graphics.newImage("textures/drop-purple.png")
 	images["drop"]["yellow"] = love.graphics.newImage("textures/drop-yellow.png")
 
+	images["background"] = {}
+	images["background"]["menu"] = love.graphics.newImage("textures/background-menu.png")
+	images["background"]["game"] = {
+		["forward"] = love.graphics.newImage("textures/background-game-forward.png"),
+		["backward"] = love.graphics.newImage("textures/background-game-backward.png"),
+	}
+
 	images["effect"] = {}
 	images["effect"][1] = love.graphics.newImage("textures/effect-01.png")
 
-	sounds = {}
-	sounds["bgm"] = {}
-	sounds["bgm"][1] = love.audio.newSource("media/bgm-01.mp3")
-	sounds["se"] = {}
-	sounds["se"][1] = love.audio.newSource("media/se-01.mp3", "static")
-	sounds["se"][2] = love.audio.newSource("media/se-02.mp3", "static")
-	sounds["se"][3] = love.audio.newSource("media/se-03.mp3", "static")
-	sounds["se"][4] = love.audio.newSource("media/se-04.mp3", "static")
-	sounds["se"][5] = love.audio.newSource("media/se-05.mp3", "static")
-
 	joystick = love.joystick.getJoysticks()[1]
+
+	font = love.graphics.newImageFont("fonts/font.png", " abcdefghijklmnopqrstuvwxyz.,:,><0123456789!?")
+	love.graphics.setFont(font)
+
+	scale = 3
+	love.window.setMode(scale * 160, scale * 144)
+
+	numcolors = 3
 
 	falltimeinterval = 1
 
-	game:load()
+	menu:load()
 end
 
 function love.update(dt)
-	if gamestate == "menu" then
-		menu:update(dt)
-	elseif gamestate == "game" then
+	if gamestate == "game" then
 		game:update(dt)
+	elseif gamestate == "menu" then
+		menu:update(dt)
 	end
 end
 
 function love.draw()
-	if gamestate == "menu" then
-		menu:draw()
-	elseif gamestate == "game" then
+	if gamestate == "game" then
 		game:draw()
+	elseif gamestate == "menu" then
+		menu:draw()
+	end
+end
+
+function love.keypressed(key, scancode, isrepeat)
+	if gamestate == "game" then
+		game:keypressed(key)
+	elseif gamestate == "menu" then
+		menu:keypressed(key)
 	end
 end
 
@@ -103,7 +117,7 @@ function drawdrop(x, y, color)
 end
 
 function transformcoordinate(x, y)
-	return (x - 1) * 50 + 75, (12 - y) * 50 + 75
+	return (x - 1) * 16 + 75, (12 - y) * 50 + 75
 end
 
 function checkcontrols(k)

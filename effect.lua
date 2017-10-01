@@ -21,21 +21,46 @@ effect.__index = effect
 
 setmetatable(effect, {
 	__call = function(_, img, w, h, duration, x, y, sx, sy, repeattime)
-		local self = animation(img, w, h, duration)
-		setmetatable(self, effect)
+		local self = setmetatable({}, effect)
 
 		self.x = x
 		self.y = y
-		self.sx = sx
-		self.sy = sy
-		self.repeattime = repeattime
+		self.sx = sx or 1
+		self.sy = sy or 1
+		self.repeattime = repeattime or 1
 		self.repeatcount = 0
+		self.image = img
+		self.quads = {}
+		self.duration = duration
+		self.timer = 0
+		self.isstopped = false
 
+		for y = 0, img:getHeight() - h, h do
+			for x = 0, img:getWidth() - w, w do
+				table.insert(self.quads, love.graphics.newQuad(x, y, w, h, img:getDimensions()))
+			end
+		end
 		return self
 	end,
 	__index = animation,
 })
 
+function effect:update(dt)
+	if not self.isstopped then
+		self.timer = self.timer + dt
+		if self.timer > self.duration then
+			self.repeatcount = self.repeatcount + 1
+			if self.repeatcount > self.repeattime then
+				self.isstopped = true
+			end
+			self.timer = self.timer - self.duration
+		end
+	end
+end
+
 function effect:draw()
-	animation.draw(self, self.x, self.y, self.sx, self.sy)
+	local n = math.floor(self.timer / self.duration * #self.quads) + 1
+
+	love.graphics.setColor(255, 255, 255, 255)
+	love.graphics.draw(self.image, self.quads[n], self.x * scale, self.y * scale, 0, self.sx * scale, self.sy * scale)
 end
