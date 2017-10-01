@@ -44,6 +44,7 @@ setmetatable(player, {
 		self.fieldoffsety = params.fieldoffsety
 		self.nextdropairsoffsetx = params.nextdropairsoffsetx
 		self.nextdropairsoffsety = params.nextdropairsoffsety
+		self.playtime = 0
 		self:changegamestate("countdown")
 
 		return self
@@ -51,6 +52,10 @@ setmetatable(player, {
 })
 
 function player:update(dt)
+	if self.state == "control" or self.state == "next" or self.state == "fall" or self.state == "delete" then
+		self.playtime = self.playtime + dt
+	end
+
 	if self.state == "control" then
 		self.dropair:update(dt)
 
@@ -143,6 +148,9 @@ function player:drawnextdropairs()
 end
 
 function player:draw()
+	love.graphics.setColor(255, 255, 255, 255)
+	love.graphics.draw(images["background"]["game"]["backward"], 0, 0, 0, scale, scale)
+
 	if self.state == "control" then
 		self.dropair:draw()
 		self.field:draw()
@@ -187,6 +195,20 @@ function player:draw()
 			love.graphics.setColor(255, 255, 255, 255)
 			love.graphics.draw(images["drop"][v.color], x * scale, y * scale, 0, scale, scale)
 		end
+	end
+
+	love.graphics.setColor(255, 255, 255, 255)
+	love.graphics.draw(images["background"]["game"]["forward"], 0, 0, 0, scale, scale)
+
+	if self.state == "control" or self.state == "countdown" or self.state == "next" or self.state == "delete" or self.state == "fall" then
+		local time
+		if math.floor(self.playtime) > 9999 then
+			time = "9999"
+		else
+			time = tostring(math.floor(self.playtime))
+		end
+
+		love.graphics.print(time, (119 - (time:len() - 1) * 8) * scale, 102 * scale, 0, scale, scale)
 	end
 end
 

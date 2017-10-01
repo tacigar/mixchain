@@ -49,13 +49,7 @@ function game:update(dt)
 end
 
 function game:draw()
-	love.graphics.setColor(255, 255, 255, 255)
-	love.graphics.draw(images["background"]["game"]["backward"], 0, 0, 0, scale, scale)
-
 	self.player:draw()
-
-	love.graphics.setColor(255, 255, 255, 255)
-	love.graphics.draw(images["background"]["game"]["forward"], 0, 0, 0, scale, scale)
 
 	for _, e in ipairs(self.effects) do
 		e:draw()
