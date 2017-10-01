@@ -30,7 +30,7 @@ end
 
 setmetatable(player, {
 	__call = function(_, params)
-		self = setmetatable({}, player)
+		local self = setmetatable({}, player)
 
 		self.score = 0
 		self.dropair = nil
@@ -45,6 +45,8 @@ setmetatable(player, {
 		self.nextdropairsoffsetx = params.nextdropairsoffsetx
 		self.nextdropairsoffsety = params.nextdropairsoffsety
 		self.playtime = 0
+		self.scoremanager = scoremanager()
+
 		self:changegamestate("countdown")
 
 		return self
@@ -87,10 +89,13 @@ function player:update(dt)
 				self.field:set(v.x, v.y, v.color)
 			end
 
-			local deletes = self.field:delete()
+			local deletes, linknums, numcolors = self.field:delete()
 			if #deletes == 0 then
+				self.score = self.score + self.scoremanager.value
+				self.scoremanager:reset()
 				self:changegamestate("next")
 			else
+				self.scoremanager:chain(#deletes, linknums, numcolors)
 				self:changegamestate("delete", deletes)
 			end
 			return
@@ -125,6 +130,8 @@ function player:update(dt)
 
 			self.tempobjects = nil
 			if #falls == 0 then
+				self.score = self.score + self.scoremanager.value
+				self.scoremanager:reset()
 				self:changegamestate("next")
 			else
 				self:changegamestate("fall", falls)
@@ -207,8 +214,10 @@ function player:draw()
 		else
 			time = tostring(math.floor(self.playtime))
 		end
-
 		love.graphics.print(time, (119 - (time:len() - 1) * 8) * scale, 102 * scale, 0, scale, scale)
+
+		local score = tostring(self.score + self.scoremanager.value)
+		love.graphics.print(score, (85 - (score:len() - 1) * 8) * scale, 128 * scale, 0, scale, scale)
 	end
 end
 
@@ -238,7 +247,6 @@ function player:changegamestate(state, ...)
 
 	elseif state == "delete" then
 		self.state = "delete"
-		-- Make effects
 		local deletes = ({...})[1]
 		for _, d in ipairs(deletes) do
 			local x = util.round((d.x - 1) * 10 + self.fieldoffsetx)

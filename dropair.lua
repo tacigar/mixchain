@@ -76,11 +76,12 @@ function dropair:fix()
 		field:set(p.x, p.y, self.colors[i])
 	end
 
-	local deletes = field:delete()
+	local deletes, linknums, numcolors = field:delete()
 
 	if #deletes == 0 then
 		self.player:changegamestate("next")
 	else
+		self.player.scoremanager:chain(#deletes, linknums, numcolors)
 		self.player:changegamestate("delete", deletes)
 	end
 end

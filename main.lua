@@ -32,6 +32,7 @@ function love.load()
 	require "field"
 	require "game"
 	require "menu"
+	require "scoremanager"
 
 	controls = {}
 	controls["up"]          = { "w", 12 }

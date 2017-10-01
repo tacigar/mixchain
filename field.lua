@@ -64,6 +64,8 @@ function field:delete()
 	end
 
 	local deletes = {}
+	local checkedcolor = {}
+	local linknums = {}
 
 	local function check(color, x, y, auxfield, poss)
 		if self[y] == nil or self[y][x] ~= color or auxfield[y][x] then
@@ -94,6 +96,8 @@ function field:delete()
 				local cnt = check(self[i][j], j, i, auxfield, poss)
 
 				if cnt >= 4 then
+					table.insert(linknums, cnt)
+					checkedcolor[self[i][j]] = true
 					for _, pos in ipairs(poss) do
 						checkedfield[pos.y][pos.x] = 2
 						table.insert(deletes, { x = pos.x, y = pos.y, color = self[i][j]})
@@ -107,7 +111,12 @@ function field:delete()
 		end
 	end
 
-	return deletes
+	local numcolors = 0
+	for _ in pairs(checkedcolor) do
+		numcolors = numcolors + 1
+	end
+
+	return deletes, linknums, numcolors
 end
 
 function field:draw()
